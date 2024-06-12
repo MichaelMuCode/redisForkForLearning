@@ -1439,6 +1439,32 @@ void exitFromChild(int retcode);
 long long redisPopcount(void *s, long count);
 void redisSetProcTitle(char *title);
 
+/* Log */
+typedef struct {
+    const char *file;
+    int line;
+    const char *func;
+} logLineInfo;
+
+#define LOG_LINE_INFO ((logLineInfo){__FILE__, __LINE__, __func__})
+#define serverLog(level, fmt, ...) \
+    writeServerLog(level, LOG_LINE_INFO, fmt, ##__VA_ARGS__)
+
+#ifdef __GNUC__
+void writeServerLog(int level, logLineInfo logLine, const char *fmt, ...)
+    __attribute__((format(printf, 3, 4)));
+#else
+void writeServerLog(int level, logLineInfo logLine, const char *fmt, ...);
+#endif
+
+#define serverLogRaw(level, msg) \
+    writeServerLogRaw(level, msg, LOG_LINE_INFO)
+void writeServerLogRaw(int level, const char *msg, logLineInfo logLine);
+
+#define serverLogFromHandler(level, msg) \
+    writeServerLogFromHandler(level, msg, LOG_LINE_INFO)
+void writeServerLogFromHandler(int level, const char *msg, logLineInfo logLine);
+
 /* networking.c -- Networking and Client related operations */
 client *createClient(int fd);
 void closeTimedoutClients(void);
@@ -1743,14 +1769,6 @@ void preventCommandPropagation(client *c);
 void preventCommandAOF(client *c);
 void preventCommandReplication(client *c);
 int prepareForShutdown();
-#ifdef __GNUC__
-void serverLog(int level, const char *fmt, ...)
-    __attribute__((format(printf, 2, 3)));
-#else
-void serverLog(int level, const char *fmt, ...);
-#endif
-void serverLogRaw(int level, const char *msg);
-void serverLogFromHandler(int level, const char *msg);
 void usage(void);
 void updateDictResizePolicy(void);
 int htNeedsResize(dict *dict);

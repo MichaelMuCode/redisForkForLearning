@@ -339,7 +339,7 @@ void nolocks_localtime(struct tm *tmp, time_t t, time_t tz, int dst);
 
 /* Low level logging. To use only for very big messages, otherwise
  * serverLog() is to prefer. */
-void serverLogRaw(int level, const char *msg) {
+void writeServerLogRaw(int level, const char *msg, logLineInfo logLine) {
     const int syslogLevelMap[] = { LOG_DEBUG, LOG_INFO, LOG_NOTICE, LOG_WARNING };
     const char *c = ".-*#";
     FILE *fp;
@@ -373,8 +373,8 @@ void serverLogRaw(int level, const char *msg) {
         } else {
             role_char = (server.masterhost ? 'S':'M'); /* Slave or Master. */
         }
-        fprintf(fp,"%d:%c %s %c %s\n",
-            (int)getpid(),role_char, buf,c[level],msg);
+        fprintf(fp,"%d:%c %s %s:%d %s %c %s\n",
+            (int)getpid(), role_char, buf, logLine.file, logLine.line, logLine.func, c[level], msg);
     }
     fflush(fp);
 
@@ -382,10 +382,12 @@ void serverLogRaw(int level, const char *msg) {
     if (server.syslog_enabled) syslog(syslogLevelMap[level], "%s", msg);
 }
 
-/* Like serverLogRaw() but with printf-alike support. This is the function that
+/* The function that actually prints the log. serverLog function is just a newly 
+ * added macro definition for printing code-related logs.
+ * Like serverLogRaw() but with printf-alike support. This is the function that
  * is used across the code. The raw version is only used in order to dump
  * the INFO output on crash. */
-void serverLog(int level, const char *fmt, ...) {
+void writeServerLog(int level, logLineInfo logLine, const char *fmt, ...) {
     va_list ap;
     char msg[LOG_MAX_LEN];
 
@@ -395,7 +397,7 @@ void serverLog(int level, const char *fmt, ...) {
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
 
-    serverLogRaw(level,msg);
+    writeServerLogRaw(level, msg, logLine);
 }
 
 /* Log a fixed message without printf-alike capabilities, in a way that is
@@ -404,7 +406,7 @@ void serverLog(int level, const char *fmt, ...) {
  * We actually use this only for signals that are not fatal from the point
  * of view of Redis. Signals that are going to kill the server anyway and
  * where we need printf-alike features are served by serverLog(). */
-void serverLogFromHandler(int level, const char *msg) {
+void writeServerLogFromHandler(int level, const char *msg, logLineInfo logLine) {
     int fd;
     int log_to_stdout = server.logfile[0] == '\0';
     char buf[64];
@@ -420,6 +422,13 @@ void serverLogFromHandler(int level, const char *msg) {
     ll2string(buf,sizeof(buf),time(NULL));
     if (write(fd,buf,strlen(buf)) == -1) goto err;
     if (write(fd,") ",2) == -1) goto err;
+    if (write(fd,logLine.file,strlen(logLine.file)) == -1) goto err;
+    if (write(fd,":",1) == -1) goto err;
+    ll2string(buf, sizeof(buf), logLine.line);
+    if (write(fd,buf,strlen(buf)) == -1) goto err;
+    if (write(fd," ",1) == -1) goto err;
+    if (write(fd,logLine.func,strlen(logLine.func)) == -1) goto err;
+    if (write(fd," ",1) == -1) goto err;
     if (write(fd,msg,strlen(msg)) == -1) goto err;
     if (write(fd,"\n",1) == -1) goto err;
 err:
