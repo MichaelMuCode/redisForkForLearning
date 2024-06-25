@@ -986,6 +986,9 @@ int writeToClient(int fd, client *c, int handler_installed) {
             nwritten = write(fd,c->buf+c->sentlen,c->bufpos-c->sentlen);
             if (nwritten <= 0) break;
             printLogRepr("writing to client: ", c->buf+c->sentlen, nwritten);
+            sds logRaw = sdsnewlen(c->buf+c->sentlen, nwritten);
+            serverLog(LL_DEBUG, "writing to client raw: %s", logRaw);
+            sdsfree(logRaw);
             c->sentlen += nwritten;
             totwritten += nwritten;
 
@@ -1008,6 +1011,9 @@ int writeToClient(int fd, client *c, int handler_installed) {
             nwritten = write(fd, o->buf + c->sentlen, objlen - c->sentlen);
             if (nwritten <= 0) break;
             printLogRepr("writing to client: ", o->buf + c->sentlen, nwritten);
+            sds logRaw = sdsnewlen(o->buf + c->sentlen, nwritten);
+            serverLog(LL_DEBUG, "writing to client raw: %s", logRaw);
+            sdsfree(logRaw);
             c->sentlen += nwritten;
             totwritten += nwritten;
 
@@ -1570,6 +1576,9 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     }
 
     printLogRepr("read from client: ", c->querybuf+qblen, nread);
+    sds logRaw = sdsnewlen(c->querybuf+qblen, nread);
+    serverLog(LL_DEBUG, "read from client: %s", logRaw);
+    sdsfree(logRaw);
     sdsIncrLen(c->querybuf,nread);
     c->lastinteraction = server.unixtime;
     if (c->flags & CLIENT_MASTER) c->read_reploff += nread;
