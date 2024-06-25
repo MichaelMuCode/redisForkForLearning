@@ -639,7 +639,8 @@ struct evictionPoolEntry; /* Defined in evict.c */
 /* This structure is used in order to represent the output buffer of a client,
  * which is actually a linked list of blocks like that, that is: client->reply. */
 typedef struct clientReplyBlock {
-    size_t size, used;
+    size_t size;            /* 该内存块分配了多少内存，用于内存边界检查或者内存大小改变的处理 */
+    size_t used;            /* 该内存块保存了多少字节的回包数据 */
     char buf[];
 } clientReplyBlock;
 
@@ -1464,6 +1465,8 @@ void writeServerLogRaw(int level, const char *msg, logLineInfo logLine);
 #define serverLogFromHandler(level, msg) \
     writeServerLogFromHandler(level, msg, LOG_LINE_INFO)
 void writeServerLogFromHandler(int level, const char *msg, logLineInfo logLine);
+
+void printLogRepr(const char *pre, const void *buf, size_t len);
 
 /* networking.c -- Networking and Client related operations */
 client *createClient(int fd);

@@ -435,6 +435,15 @@ err:
     if (!log_to_stdout) close(fd);
 }
 
+void printLogRepr(const char *pre, const void *buf, size_t len) {
+    sds logWritten = sdsnewlen(buf, len);
+    sds logPre = sdsnew(pre);
+    sds logPrint = sdscatrepr(logPre, logWritten, strlen(logWritten));
+    serverLog(LL_DEBUG, logPrint);
+    sdsfree(logWritten);
+    sdsfree(logPrint);
+}
+
 /* Return the UNIX time in microseconds */
 long long ustime(void) {
     struct timeval tv;
